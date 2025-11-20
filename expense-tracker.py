@@ -1,198 +1,166 @@
-import time, os, sys, datetime, csv
+import os
+import csv
+import time
+import datetime
 
-def animated_starting(word="Starting", repeats=3, delay=0.5):
-    """
-    Displays animated 'word', like:
-    Starting.
-    Starting..
-    Starting...
-    All in one line, updating dynamically.
-    """
-    for i in range(repeats):
-        dots = '.' * ((i % 3) + 1)  # cycles through 1,2,3 dots
-        print(f"\r{word}{dots}  ", end='', flush=True)  # end='' keeps it on same line
-        time.sleep(delay)
-    print()  # final newline after animation
+# ================================
+# COLORS + ICONS
+# ================================
+RESET = "\033[0m"
+GREEN = "\033[92m"
+RED = "\033[91m"
+CYAN = "\033[96m"
+YELLOW = "\033[93m"
 
-def animated_loading(word="Loading", repeats=3, delay=0.5):
-    """
-    Displays animated 'word', like:
-    Loading.
-    Loading..
-    Loading...
-    All in one line, updating dynamically.
-    """
-    for i in range(repeats):
-        dots = '.' * ((i % 3) + 1)  # cycles through 1,2,3 dots
-        print(f"\r{word}{dots}  ", end='', flush=True)  # end='' keeps it on same line
-        time.sleep(delay)
-    print()  # final newline after animation
+ICON_OK = "✔"
+ICON_ERR = "✖"
+ICON_INFO = "ℹ"
+ICON_ADD = "➕"
+ICON_LIST = "📄"
+ICON_TOTAL = "📊"
+ICON_EXIT = "🚪"
 
-def animated_progress(word="In Progress", repeats=3, delay=0.5):
-    """
-    Displays animated 'word', like:
-    In Progress.
-    In Progress..
-    In Progress...
-    All in one line, updating dynamically.
-    """
-    for i in range(repeats):
-        dots = '.' * ((i % 3) + 1)  # cycles through 1,2,3 dots
-        print(f"\r{word}{dots}  ", end='', flush=True)  # end='' keeps it on same line
-        time.sleep(delay)
-    print()  # final newline after animation
 
-def animated_exiting(word="Exiting", repeats=3, delay=0.5):
-    """
-    Displays animated 'word', like:
-    Exiting.
-    Exiting..
-    Exiting...
-    All in one line, updating dynamically.
-    """
-    for i in range(repeats):
-        dots = '.' * ((i % 3) + 1)  # cycles through 1,2,3 dots
-        print(f"\r{word}{dots}  ", end='', flush=True)  # end='' keeps it on same line
-        time.sleep(delay)
-    print()  # final newline after animation
-
+# ================================
+# UI HELPERS
+# ================================
 def pause():
-    print()
-    input("Press Enter to continue...")
-    time.sleep(1)
+    input("\nPress Enter to continue...")
+
+def success(msg):
+    print(f"{GREEN}{ICON_OK} {msg}{RESET}")
 
 def error(msg):
+    print(f"{RED}{ICON_ERR} {msg}{RESET}")
+
+def info(msg):
+    print(f"{CYAN}{ICON_INFO} {msg}{RESET}")
+
+def animate(text, repeats=3, delay=0.35):
+    for i in range(repeats):
+        dots = "." * ((i % 3) + 1)
+        print(f"\r{text}{dots}", end="", flush=True)
+        time.sleep(delay)
     print()
-    print(f"[x] {msg}")
-    time.sleep(2)
-    pause()
+
+
+# ================================
+# DATA (CSV)
+# ================================
+def ensure_file(file_path):
+    if not os.path.exists(file_path):
+        with open(file_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Amount", "Category", "Date"])
 
 
 def add_expense(file_path):
-    animated_loading("Loading", repeats=3, delay=0.5)
-    print()
+    animate("Loading")
 
     try:
-
-        amount = float(input("Enter amount: $"))
-        if amount <= 0 :
-            error("Amount should not be less than or equal 0!")
+        amount = float(input("Enter amount ($): "))
+        if amount <= 0:
+            error("Amount must be greater than 0!")
+            pause()
             return
-        else:
-            category = input("Enter category: ").strip().capitalize()
-            if category == "":
-                error("Category should not be empty!")
-                return
-            elif len(category) > 25:
-                error("Maximum 25 characters!")
-                return
-            else:
-                date = datetime.date.today()
-                row = [amount, category, date]
 
-                if os.path.exists(file_path):
-                    with open(file_path, "a", newline="") as file:
-                        writer = csv.writer(file)
-                        writer.writerow(row)
-                else:
-                    with open(file_path, "w", newline="") as file:
-                        writer = csv.writer(file)
-                        writer.writerow(row)
-                print()
-                animated_progress("In Progress", repeats=3, delay=0.5)
-                print("[OK] Expense Added Successfully!")
-                time.sleep(2)
-                
-    except ValueError:
+        category = input("Enter category: ").strip().capitalize()
+        if not category:
+            error("Category cannot be empty!")
+            pause()
+            return
+        if len(category) > 25:
+            error("Category must be ≤ 25 characters!")
+            pause()
+            return
+
+        date = datetime.date.today()
+
+        with open(file_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([amount, category, date])
+
         print()
-        print("ERROR! Invalid Expense!")
-        time.sleep(2)
+        animate("Saving")
+        success("Expense added successfully!")
 
-    print(f"Writing CSV file to: {file_path}")
+    except ValueError:
+        error("Invalid amount!")
+
     pause()
 
 
+def read_expenses(file_path):
+    with open(file_path, "r") as f:
+        return list(csv.reader(f))[1:]  # skip header
+
+
 def view_expenses(file_path):
-    animated_loading("Loading", repeats=3, delay=0.5)
+    animate("Loading")
+
+    rows = read_expenses(file_path)
+
+    if not rows:
+        error("No expenses found!")
+        pause()
+        return
+
+    print("\n📄 ALL EXPENSES:\n")
+    print(f"{'Amount ($)':<12} | {'Category':<20} | Date")
+    print("-" * 50)
+
+    for r in rows:
+        print(f"{float(r[0]):<12.2f} | {r[1]:<20} | {r[2]}")
+        time.sleep(0.15)
+
     print()
-
-    if os.path.exists(file_path):
-        with open(file_path, "r") as file:
-            rows = [row for row in csv.reader(file) if len(row) == 3]
-
-
-            if len(rows) == 0:
-                print("[!!] No expenses found. Your expense list is empty.")
-                time.sleep(2)
-                print()
-            else:
-                col1 = "Amount"
-                col2 = "Category"
-                col3 = "Date"
-
-                print(f"{col1:<8} | {col2:<25} | {col3}")
-                print("-------------------------------------------------")
-                time.sleep(1)
-                for row in rows:
-                    print(f"{float(row[0]):<8.2f} | {row[1]:<25} | {row[2]}")
-                    time.sleep(0.5)
-                
-                time.sleep(1)
-                print()
-                print("[OK] Done! All your expenses have been listed.")
-                time.sleep(2)
-            
-    else:
-        print("[!!] No expenses found. Your expense list is empty.")
-        time.sleep(2)
-        print()
-
+    success("Done!")
     pause()
 
 
 def total_spending(file_path):
-    animated_loading("Loading", repeats=3, delay=0.5)
+    animate("Calculating")
+
+    rows = read_expenses(file_path)
+    total = sum(float(r[0]) for r in rows) if rows else 0.0
+
     print()
-
-    if os.path.exists(file_path):
-        with open(file_path, "r") as file:
-            rows = [row for row in csv.reader(file) if len(row) == 3]
-
-            if len(rows) == 0:
-                print("Total Spending: $0.00")
-                time.sleep(2)
-            else:
-                total = 0
-                for row in rows:
-                    total += float(row[0])
-                
-                print(f"Total Spending: ${total:.2f}")
-                time.sleep(2)
-    else:
-        print("Total Spending: $0.00")
-        time.sleep(2)
-
-    pause() 
+    info(f"Your total spending: {GREEN}${total:.2f}{RESET}")
+    pause()
 
 
+def exit_program():
+    for i in range(3):
+        print("Exiting" + "." * (i + 1))
+        time.sleep(1)
+        os.system("cls" if os.name == "nt" else "clear")
+    print("🔶 Thank you for choosing our service. Stay prepared. 🏆 \n")
 
+
+# ================================
+# MAIN MENU
+# ================================
 def main():
+
+    # ========== MY FOLDER DIRECTORY ===========
     base_path = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(base_path, "expenses.csv")
-    is_running = True
+    # ==========================================
 
-    while is_running:
-        print()
-        print("====== Expense Tracker ======")
-        print()
-        print("1. Add Expense")
-        print("2. View All Expenses")
-        print("3. View Total Spending")
-        print("4. Exit")
-        print()
-        print("=============================")
+    ensure_file(file_path)
 
-        choice = input("Enter Your Choice (1-4): ")
+    while True:
+        print()
+        print("====================================")
+        print("        💰 Expense Tracker")
+        print("====================================\n")
+        print(f"1. {ICON_ADD} Add Expense")
+        print(f"2. {ICON_LIST} View Expenses")
+        print(f"3. {ICON_TOTAL} Total Spending")
+        print(f"4. {ICON_EXIT} Exit\n")
+        print("====================================")
+
+        choice = input("Enter your choice (1-4): ").strip()
 
         if choice == "1":
             add_expense(file_path)
@@ -201,22 +169,20 @@ def main():
         elif choice == "3":
             total_spending(file_path)
         elif choice == "4":
-            for i in range(3):
-                print("Exiting" + "." * (i + 1))
-                time.sleep(1)
-                os.system("cls" if os.name == "nt" else "clear")
-            print("* Program closed successfully. Bye! * \n")
-            is_running = False
+            exit_program()
+            break
         else:
-            error("Invalid Choice!")
+            error("Invalid choice!")
+            time.sleep(1.5)
 
 
 if __name__ == "__main__":
     try:
+        # ===== Startup Animation =====
         for i in range(3):
             print(" Starting" + "." * (i + 1))
-            time.sleep(1)
+            time.sleep(0.8)
             os.system("cls" if os.name == "nt" else "clear")
         main()
     except KeyboardInterrupt:
-        print("\n \n * Program closed successfully. Bye! * \n")
+        print("\n \n🔶 Thank you for choosing our service. Stay prepared. 🏆 \n")
